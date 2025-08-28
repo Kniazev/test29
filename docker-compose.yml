@@ -1,0 +1,73 @@
+version: "3.8"
+
+services:
+    app:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        volumes:
+            - .:/var/www/html
+        depends_on:
+            db:
+                condition: service_healthy
+        networks:
+            - laravel
+
+    nginx:
+        image: nginx:alpine
+        restart: unless-stopped
+        ports:
+            - "8000:80"
+        volumes:
+            - .:/var/www/html
+            - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+        depends_on:
+            - app
+        networks:
+            - laravel
+
+    db:
+        image: mysql:8.0
+        restart: unless-stopped
+        command: --default-authentication-plugin=mysql_native_password
+        environment:
+            MYSQL_DATABASE: laravel
+            MYSQL_USER: laravel
+            MYSQL_PASSWORD: secret
+            MYSQL_ROOT_PASSWORD: root
+        ports:
+            - "3307:3306" # наружу 3307, внутри контейнера стандартный 3306
+        healthcheck:
+            test: ["CMD", "mysql", "-h", "localhost", "-u", "laravel", "--password=secret", "-e", "show databases;"]
+            interval: 5s
+            timeout: 3s
+            retries: 10
+        networks:
+            - laravel
+
+    composer:
+        image: composer:2
+        working_dir: /var/www/html
+        volumes:
+            - .:/var/www/html
+        networks:
+            - laravel
+
+    phpmyadmin:
+        image: phpmyadmin/phpmyadmin
+        restart: unless-stopped
+        environment:
+            PMA_HOST: db
+            PMA_PORT: 3306
+            PMA_USER: laravel
+            PMA_PASSWORD: secret
+        ports:
+            - "8080:80"
+        depends_on:
+            - db
+        networks:
+            - laravel
+
+networks:
+    laravel:
+        driver: bridge
