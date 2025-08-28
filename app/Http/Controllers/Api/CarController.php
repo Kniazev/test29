@@ -11,6 +11,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class CarController extends Controller
 {
@@ -64,17 +66,22 @@ class CarController extends Controller
      */
     public function store(Request $request): CarResource
     {
-        $data = $request->validate([
-            'brand_id' => 'required|exists:brands,id',
-            'car_model_id' => 'required|exists:car_models,id',
-            'year' => 'nullable|integer|min:1900|max:' . (date('Y') + 1),
-            'mileage' => 'nullable|integer|min:0',
-            'color' => 'nullable|string|max:255',
-        ]);
+        try {
+            $data = $request->validate([
+                'brand_id' => 'required|exists:brands,id',
+                'car_model_id' => 'required|exists:car_models,id',
+                'year' => 'nullable|integer|min:1900|max:' . (date('Y') + 1),
+                'mileage' => 'nullable|integer|min:0',
+                'color' => 'nullable|string|max:255',
+            ]);
 
-        $car = $this->carService->createCar($data);
+            $car = $this->carService->createCar($data);
 
-        return new CarResource($car);
+            return new CarResource($car);
+        } catch (Throwable $e) {
+            Log::error('Failed to store car', ['error' => $e->getMessage()]);
+            throw $e;
+        }
     }
 
     /**
@@ -115,19 +122,24 @@ class CarController extends Controller
      */
     public function update(Request $request, Car $car): CarResource
     {
-        $this->authorize('update', $car);
+        try {
+            $this->authorize('update', $car);
 
-        $data = $request->validate([
-            'brand_id' => 'sometimes|required|exists:brands,id',
-            'car_model_id' => 'sometimes|required|exists:car_models,id',
-            'year' => 'nullable|integer|min:1900|max:' . (date('Y') + 1),
-            'mileage' => 'nullable|integer|min:0',
-            'color' => 'nullable|string|max:255',
-        ]);
+            $data = $request->validate([
+                'brand_id' => 'sometimes|required|exists:brands,id',
+                'car_model_id' => 'sometimes|required|exists:car_models,id',
+                'year' => 'nullable|integer|min:1900|max:' . (date('Y') + 1),
+                'mileage' => 'nullable|integer|min:0',
+                'color' => 'nullable|string|max:255',
+            ]);
 
-        $updatedCar = $this->carService->updateCar($car, $data);
+            $updatedCar = $this->carService->updateCar($car, $data);
 
-        return new CarResource($updatedCar);
+            return new CarResource($updatedCar);
+        } catch (Throwable $e) {
+            Log::error('Failed to update car', ['car_id' => $car->id, 'error' => $e->getMessage()]);
+            throw $e;
+        }
     }
 
     /**
@@ -144,10 +156,15 @@ class CarController extends Controller
      */
     public function destroy(Car $car): Response
     {
-        $this->authorize('delete', $car);
-        $this->carService->deleteCar($car);
+        try {
+            $this->authorize('delete', $car);
+            $this->carService->deleteCar($car);
 
-        return response()->noContent();
+            return response()->noContent();
+        } catch (Throwable $e) {
+            Log::error('Failed to delete car', ['car_id' => $car->id, 'error' => $e->getMessage()]);
+            throw $e;
+        }
     }
 
     /**
@@ -164,10 +181,15 @@ class CarController extends Controller
      */
     public function assign(Request $request, Car $car): JsonResponse
     {
-        $this->authorize('assign', $car);
-        $this->carService->assignCar($car, $request->user());
+        try {
+            $this->authorize('assign', $car);
+            $this->carService->assignCar($car, $request->user());
 
-        return response()->json(['message' => 'Car assigned successfully.']);
+            return response()->json(['message' => 'Car assigned successfully.']);
+        } catch (Throwable $e) {
+            Log::error('Failed to assign car', ['car_id' => $car->id, 'user_id' => $request->user()?->id, 'error' => $e->getMessage()]);
+            throw $e;
+        }
     }
 
     /**
@@ -185,9 +207,14 @@ class CarController extends Controller
      */
     public function unassign(Car $car): JsonResponse
     {
-        $this->authorize('unassign', $car);
-        $this->carService->unassignCar($car);
+        try {
+            $this->authorize('unassign', $car);
+            $this->carService->unassignCar($car);
 
-        return response()->json(['message' => 'Car unassigned successfully.']);
+            return response()->json(['message' => 'Car unassigned successfully.']);
+        } catch (Throwable $e) {
+            Log::error('Failed to unassign car', ['car_id' => $car->id, 'error' => $e->getMessage()]);
+            throw $e;
+        }
     }
 }
